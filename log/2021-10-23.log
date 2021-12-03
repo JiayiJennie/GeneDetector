@@ -1,0 +1,39 @@
+2021-10-23 23:40:59.894 [INFO] Please input name of the disease you want to search:  
+2021-10-23 23:41:34.214 [INFO] Diabetes
+ 
+2021-10-23 23:41:34.215 [INFO] Please input count of papers you want to download:  
+2021-10-23 23:41:39.776 [INFO] Downloading... Please wait... Expect to download 1 pages...
+ 
+2021-10-23 23:41:39.777 [INFO] folder /Users/jiayili/go/src/GeneDetector 
+2021-10-23 23:41:39.778 [INFO] Downloading page 1... 
+2021-10-23 23:41:40.515 [INFO] Begin to write data line: 0 
+2021-10-23 23:41:40.863 [INFO] Begin to write data line: 1 
+2021-10-23 23:41:41.237 [INFO] Begin to write data line: 2 
+2021-10-23 23:41:41.612 [INFO] Begin to write data line: 3 
+2021-10-23 23:41:41.983 [INFO] Begin to write data line: 4 
+2021-10-23 23:41:42.399 [INFO] Begin to write data line: 5 
+2021-10-23 23:41:42.878 [INFO] Begin to write data line: 6 
+2021-10-23 23:41:43.264 [INFO] Begin to write data line: 7 
+2021-10-23 23:41:43.755 [INFO] Begin to write data line: 8 
+2021-10-23 23:41:44.217 [INFO] Begin to write data line: 9 
+2021-10-23 23:41:44.589 [INFO] Task finished! 
+2021-10-23 23:42:28.696 [INFO] Please input name of the disease you want to search:  
+2021-10-23 23:42:37.642 [INFO] Diabetes
+ 
+2021-10-23 23:42:37.643 [INFO] Please input count of papers you want to download:  
+2021-10-23 23:42:40.558 [INFO] Downloading... Please wait... Expect to download 1 pages...
+ 
+2021-10-23 23:42:40.559 [INFO] folder /Users/jiayili/go/src/GeneDetector 
+2021-10-23 23:42:40.564 [INFO] Downloading page 1... 
+2021-10-23 23:42:41.295 [INFO] Begin to write data line: 0 
+2021-10-23 23:42:41.721 [INFO] Begin to write data line: 1 
+2021-10-23 23:42:42.101 [INFO] Begin to write data line: 2 
+2021-10-23 23:42:42.570 [INFO] Begin to write data line: 3 
+2021-10-23 23:42:42.926 [INFO] Begin to write data line: 4 
+2021-10-23 23:42:43.336 [INFO] Begin to write data line: 5 
+2021-10-23 23:42:43.727 [INFO] Begin to write data line: 6 
+2021-10-23 23:42:44.120 [INFO] Begin to write data line: 7 
+2021-10-23 23:42:44.560 [INFO] Begin to write data line: 8 
+2021-10-23 23:42:44.876 [INFO] Begin to write data line: 9 
+2021-10-23 23:42:45.464 [INFO] 99999 
+2021-10-23 23:42:45.465 [INFO] Task finished! 
