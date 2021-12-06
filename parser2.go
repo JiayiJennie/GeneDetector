@@ -24,11 +24,11 @@ func ParseFirstPage2(body string) (string, int) {
 		panic(err)
 	}
 
-	expr, _ := xpath.Compile("string(//input[@name='csrfmiddlewaretoken']/@value)")
+	expr, _ := xpath.Compile("string(//input[@name='csrfmiddlewaretoken']/@value)") //***************************
 	navigator := htmlquery.CreateXPathNavigator(doc)
 	csrfToken := expr.Evaluate(navigator).(string)
 
-	expr, _ = xpath.Compile("string(//span[@class='total-pages'])")
+	expr, _ = xpath.Compile("string(//span[@class='total-pages'])") //*********************88
 	totalPageString := strings.TrimSpace(expr.Evaluate(navigator).(string))
 	totalPageCount, _ := strconv.Atoi(strings.Replace(totalPageString, ",", "", -1))
 
@@ -53,7 +53,7 @@ func ParseGeneCardUrlList(body string) []string {
 
 	// get paperUrl from href value.
 	for _, node := range list {
-		titleNode, _ := htmlquery.Query(node, "./a[@class='docsum-title']")
+		titleNode, _ := htmlquery.Query(node, "./a[@class='docsum-title']") //*****************************
 		paperUrl := fmt.Sprintf("https://pubmed.ncbi.nlm.nih.gov%s", htmlquery.SelectAttr(titleNode, "href"))
 		result = append(result, paperUrl)
 	}

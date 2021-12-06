@@ -52,18 +52,15 @@ func DownloadFirstSearchPage2(keyword string, csvWriter *csv.Writer, limit int) 
 		g.Log().Infof("Begin to write data line: %d", i)
 		geneCardDetailBody := DownloadGeneCardDetail(geneCardUrl, targetUrl)
 		geneCard := CreateGeneCard()
-		geneCard.ParseGeneCard(geneCardUrl, geneCardDetailBody,targetUrl)
-		//paper := CreatePaper()
-		//paper.ParsePaper(paperUrl, paperDetailBody, keyword)
-		//dataList = append(dataList, []string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
+		geneCard.ParseGeneCard(geneCardUrl, geneCardDetailBody, keyword)
+		dataList = append(dataList, []string{geneCard.url, geneCard.symbol, geneCard.keyword})
 		ExistPaperCount += 1
 		if ExistPaperCount >= limit {
-			currentPage = OverflowPage
 			break
 		}
 	}
 
-	// write data in cvs file.
+	// write data in csv file.
 	_ = csvWriter.WriteAll(dataList)
 	return targetUrl, csrfToken, cookie, currentPage, totalPageCount
 }
@@ -80,7 +77,7 @@ func DownloadFollowingSearchPage2(keyword string, referer string, csrfToken stri
 		cache-control: no-cache
 		content-type: application/x-www-form-urlencoded; charset=UTF-8
 		cookie: %s
-		origin: https://pubmed.ncbi.nlm.nih.gov
+		origin: https://www.genecards.org
 		pragma: no-cache
 		referer: %s
 		user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36
@@ -106,12 +103,12 @@ func DownloadFollowingSearchPage2(keyword string, referer string, csrfToken stri
 
 	// range all the url of single page of abstract and get all the data from each abstract.
 	// then write them into file.
-	for i, paperUrl := range ParsePaperUrlList(body) {
+	for i, geneCardUrl := range ParseGeneCardUrlList(body) {
 		g.Log().Infof("Begin to write data line: %d", i)
-		paperDetailBody := DownloadPaperDetail(paperUrl, referer)
-		paper := CreatePaper()
-		paper.ParsePaper(paperUrl, paperDetailBody, keyword)
-		_ = csvWriter.Write([]string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
+		geneCardDetailBody := DownloadGeneCardDetail(geneCardUrl, referer)
+		geneCard := CreateGeneCard()
+		geneCard.ParseGeneCard(geneCardUrl, geneCardDetailBody, keyword)
+		_ = csvWriter.Write([]string{geneCard.url, geneCard.symbol, geneCard.keyword})
 		ExistPaperCount += 1
 		if ExistPaperCount >= limit {
 			return false

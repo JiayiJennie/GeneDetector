@@ -1,68 +1,66 @@
+// Thanks for Robin L. having good discussions about the tips of web scrap!
 package main
 
 import (
-	"bufio"
 	"encoding/csv"
+	"flag"
 	"fmt"
-	"github.com/gogf/gf/frame/g"
-	"math"
 	"os"
 	"strings"
 	"time"
 )
 
-// GetGeneResult takes a disease keyword and the page limit, and gets all the information in cvs file.
-func GetGeneResult(keyword string, limit int)  {
-	// get work dictionary.
-	rootFolderPath, _ := os.Getwd()
-	g.Log().Infof("folder %s", rootFolderPath)
-	resultFolderPath := fmt.Sprintf("%s/csv", rootFolderPath)
-	// If the file don't exist, create a file
-	_, err := os.Stat(resultFolderPath)
-	if os.IsNotExist(err) {
-		_ = os.Mkdir(resultFolderPath, os.ModePerm)
-	}
+// GetGeneResult takes a keyword and a paper count, and output all the information in csv file.
+func GetGeneResult(keyword string, paperNumber int)  {
+	// create a csv file to hold output
+
+	// Use the time right now to make a unique name for the output csv file.
 	timeObj := time.Now()
 	now := fmt.Sprintf("%d%d%d_%d%d%d", timeObj.Year(), timeObj.Month(), timeObj.Day(), timeObj.Hour(), timeObj.Minute(), timeObj.Second())
-	csvFilePath := fmt.Sprintf("%s/%s_%s.csv", resultFolderPath, keyword, now)
-	csvFile, err := os.OpenFile(csvFilePath, os.O_RDWR | os.O_CREATE, 0666)
+	fileName := fmt.Sprintf("%s_%s.csv", keyword, now)
+	csvFile, err := os.OpenFile(fileName, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666) // O_CREATE creates a csv file. perm 0666: everyone can read and write this file.
 	if err != nil {
 		panic(err)
 	}
 	defer csvFile.Close()
-	defer fmt.Printf("CSV file has been saved to path: [ %s ]\n", csvFilePath)
+	defer fmt.Println("CSV file has been saved")
 
-	fmt.Printf("CSV file will be saved to path: [ %s ]\n", csvFilePath)
-
+	// Write headers in csv files
 	csvWriter := csv.NewWriter(csvFile)
-	_ = csvWriter.Write([]string{"title", "url", "abstract", "gene", "pmid", "doi", "keyword"})
+	err2 := csvWriter.Write([]string{"title", "url", "abstract", "gene", "pmid", "doi", "keyword"})
+	if err2 != nil{
+		panic(err2)
+	}
 
-	g.Log().Info("Downloading page 1...")
-	firstPageUrl, csrfToken, cookie, currentPage, totalPageCount := DownloadFirstSearchPage(keyword, csvWriter, limit)
-	// g.Log().Info(currentPage)
-	if currentPage < totalPageCount {
-		for {
-			currentPage = currentPage + 1
-			if currentPage < totalPageCount {
-				fmt.Printf("Downloading page %d...\n", currentPage)
-				hasNext := DownloadFollowingSearchPage(keyword, firstPageUrl, csrfToken, cookie, currentPage, csvWriter, limit)
-				if !hasNext {
-					break
-				}
-			}
+	// download first search page
+	fmt.Println("Downloading page 1...")
+	firstPageUrl, csrfToken, cookie, totalPageCount := DownloadFirstSearchPage(keyword, csvWriter, paperNumber)
+
+	// download following search pages
+	for currentPage := 2; currentPage < totalPageCount; currentPage++ {
+		fmt.Printf("Downloading page %d...\n", currentPage)
+		hasNext := DownloadFollowingSearchPage(keyword, firstPageUrl, csrfToken, cookie, currentPage, csvWriter, paperNumber)
+		if !hasNext {
+			break
 		}
 	}
 }
 
+
 func main() {
-	g.Log().Info("Please input name of the disease you want to search: ")
-	inputReader := bufio.NewReader(os.Stdin)
-	keyword, _ := inputReader.ReadString('\n')
-	g.Log().Info(keyword)
-	g.Log().Info("Please input count of papers you want to download: ")
-	var limit int
-	_, _ = fmt.Scanln(&limit)
-	g.Log().Infof("Downloading... Please wait... Expect to download %d pages...\n", int(math.Ceil(float64(limit) / 10)))  // 10 abstracts a page.
-	GetGeneResult(strings.TrimSpace(keyword), limit)
-	g.Log().Info("Task finished!")
+	var keyword string
+	var paperNumber int
+
+	flag.StringVar(&keyword, "disease", "Alzheimer's", "disease name")
+	flag.IntVar(&paperNumber, "n", 10, "paper number")
+	flag.Parse()
+
+	GetGeneResult(strings.TrimSpace(keyword), paperNumber)
+
+	fmt.Println("Task finished!")
+
+	// Example Command:
+	// ./GeneDetector
+	// ./GeneDetector -disease diabetes 20
 }
+
