@@ -1,4 +1,4 @@
-Thanks for **xxx** having good discussions about the tips of web scrap!\
+Thanks for **Robin L.** having good discussions about the tips of web scrap!\
 # GeneDetector
 
 ## Package Used 
