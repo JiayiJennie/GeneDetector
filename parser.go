@@ -22,21 +22,23 @@ type Paper struct {
 	keyword  string
 }
 
-// ParseFirstPage parses the fist search result page.
+// ParseFirstPage parses the body of fist search result page.
 // It takes the body and returns csrfToken and totalPageCount.
 func ParseFirstPage(body string) (string, int) {
 	//Load HTML documents from string.
 	doc, err := htmlquery.Parse(strings.NewReader(body))
 	if err != nil {
-		panic("Error: wrong on HTML documents")
+		panic(err)
 	}
 
+	// get csrfToken
 	expr, _ := xpath.Compile("string(//input[@name='csrfmiddlewaretoken']/@value)")
 	navigator := htmlquery.CreateXPathNavigator(doc)
 	csrfToken := expr.Evaluate(navigator).(string)
 
-	expr, _ = xpath.Compile("string(//span[@class='total-pages'])")
-	totalPageString := strings.TrimSpace(expr.Evaluate(navigator).(string))
+	// Get total page count from the search result
+	expr2, _ := xpath.Compile("string(//span[@class='total-pages'])")
+	totalPageString := strings.TrimSpace(expr2.Evaluate(navigator).(string))
 	totalPageCount, _ := strconv.Atoi(strings.Replace(totalPageString, ",", "", -1))
 
 	return csrfToken, totalPageCount
@@ -51,14 +53,16 @@ func ParsePaperUrlList(body string) []string {
 		panic(err)
 	}
 
-	// Find href value that lead to each single page of abstract.
-	// put them into a list of href value.
+	// put html nodes of abstract search result into a list.
+	// On pubmed, one search page has 10 abstract results.
+	// so the list has 10 html nodes.
 	list, err2 := htmlquery.QueryAll(doc, "//div[@class='search-results-chunk results-chunk']/article[@class='full-docsum']/div[@class='docsum-wrap']/div[@class='docsum-content']")
 	if err2 != nil {
 		panic(err2)
 	}
 
-	// get paperUrl from href value.
+	// get paperUrl from href values.
+	// href value can lead to a new single page of abstract.
 	for _, node := range list {
 		titleNode, _ := htmlquery.Query(node, "./a[@class='docsum-title']")
 		paperUrl := fmt.Sprintf("https://pubmed.ncbi.nlm.nih.gov%s", htmlquery.SelectAttr(titleNode, "href"))
@@ -92,7 +96,7 @@ func (paper *Paper)ParsePaper(paperUrl string, body string, keyword string)  {
 }
 
 // GetTitle is a method getting the title of the paper.
-func (paper *Paper)GetTitle(doc *html.Node) {
+func (paper *Paper)GetTitle(doc *html.Node){
 	titleNode, _ := htmlquery.Query(doc, "//h1[@class='heading-title']")
 	paper.title = strings.TrimSpace(htmlquery.InnerText(titleNode))
 }
@@ -106,6 +110,7 @@ func(paper *Paper)GetAbstract(doc *html.Node)  {
 }
 
 // GetGeneName is a method getting the gene name from the abstract.
+// Here use pattern to match the gene name.
 func (paper *Paper)GetGeneName() {
 	genePattern := regexp2.MustCompile(`[A-Z][A-Z\d-]{1,5}(?<![-])\b`, 0)
 

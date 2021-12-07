@@ -37,7 +37,7 @@ func GetGeneResult(keyword string, paperNumber int)  {
 	firstPageUrl, csrfToken, cookie, totalPageCount := DownloadFirstSearchPage(keyword, csvWriter, paperNumber)
 
 	// download following search pages
-	for currentPage := 2; currentPage < totalPageCount; currentPage++ {
+	for currentPage := 2; currentPage <= totalPageCount; currentPage++ {
 		fmt.Printf("Downloading page %d...\n", currentPage)
 		hasNext := DownloadFollowingSearchPage(keyword, firstPageUrl, csrfToken, cookie, currentPage, csvWriter, paperNumber)
 		if !hasNext {
@@ -57,10 +57,10 @@ func main() {
 
 	GetGeneResult(strings.TrimSpace(keyword), paperNumber)
 
-	fmt.Println("Task finished!")
+	fmt.Println("GeneDetector finished!")
 
 	// Example Command:
 	// ./GeneDetector
-	// ./GeneDetector -disease diabetes 20
+	// ./GeneDetector -disease diabetes -n 20
 }
 

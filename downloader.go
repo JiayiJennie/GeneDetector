@@ -19,21 +19,14 @@ func DownloadFirstSearchPage(keyword string, csvWriter *csv.Writer, paperNumber 
 	// create a new client
 	client := g.Client()
 	// Set request headers
-	client.SetHeaderRaw(`
+	client.SetHeaderRaw(fmt.Sprintf(`
 		accept: */*
-		
-		
-		
-
+		accept-language: en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7
 		user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.55 Safari/537.36
-	`)
-		//accept-language: en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7
-		//cache-control: no-cache
-		//pragma: no-cache
-		//upgrade-insecure-requests: 1
+	`))
 
 	// send GET request and returns the response object.
-	response, err := client.Get(targetUrl) // The response contains status information about the request.
+	response, err := client.Get(targetUrl) // The response contains body in html.
 	if err != nil {
 		panic(err)
 	}
@@ -41,9 +34,10 @@ func DownloadFirstSearchPage(keyword string, csvWriter *csv.Writer, paperNumber 
 	// get body
 	body := response.ReadAllString()  // body is the <body> element containing all the contents of an HTML document.
 
-	// parse first search page
+	// parse first search page to get csrfToken, totalPageCount
 	// csrfToken is a random key for safe access.
 	// csrfTokens are used to send requests from an authenticated user to a web application.
+	// totalPageCount is the number of total search page.
 	csrfToken, totalPageCount := ParseFirstPage(body)
 	if totalPageCount > 1000 {  // The maximum value of totalPageCount is 1000 (limited by the website)
 		totalPageCount = 1000
@@ -68,12 +62,8 @@ func DownloadFirstSearchPage(keyword string, csvWriter *csv.Writer, paperNumber 
 		paper := CreatePaper()
 		paper.ParsePaper(paperUrl, paperDetailBody, keyword)
 		dataList = append(dataList, []string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
-		ExistPaperCount += 1
-		if ExistPaperCount >= paperNumber {
-			break
-		}
+		ExistPaperCount ++
 	}
-
 	// write data in cvs file.
 	_ = csvWriter.WriteAll(dataList)
 
@@ -82,29 +72,32 @@ func DownloadFirstSearchPage(keyword string, csvWriter *csv.Writer, paperNumber 
 
 
 // DownloadFollowingSearchPage downloads the following pages after the first page.
-func DownloadFollowingSearchPage(keyword string, referer string, csrfToken string, cookie string, page int, csvWriter *csv.Writer, limit int) bool {  // function to get content of the following search result page
+func DownloadFollowingSearchPage(keyword string, referer string, csrfToken string, cookie string, currPage int, csvWriter *csv.Writer, paperNumber int) bool {  // function to get content of the following search result page
 	targetUrl := "https://pubmed.ncbi.nlm.nih.gov/more/" // the target urls of the following pages are different from the target url of the first page.
 	client := g.Client()
 	client.SetHeaderRaw(fmt.Sprintf(` 
 		accept: */*
 		accept-language: en-US,en;q=0.9
-		cache-control: no-cache
-		content-type: application/x-www-form-urlencoded; charset=UTF-8
+		cache-control: no-store, no-cache, must-revalidate, max-age=0
+		content-type: application/x-www-form-urlencoded
 		cookie: %s
 		origin: https://pubmed.ncbi.nlm.nih.gov
 		pragma: no-cache
-		referer: %s
+		referer: https://pubmed.ncbi.nlm.nih.gov/
 		user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.55 Safari/537.36
 		x-requested-with: XMLHttpRequest
-	`, cookie, referer))
+	`, cookie))
+
+	// data are parameters used for post request
 	data := g.Map{
 		"term": keyword,
 		"filter": "simsearch1.fha",
 		"no_cache": "yes",
-		"page": page,
+		"page": currPage,
 		"no-cache": time.Now().UnixMilli(),
 		"csrfmiddlewaretoken": csrfToken,
 	}
+	//post request
 	response, err := client.Post(targetUrl, data)
 	if err != nil {
 		panic(err)
@@ -113,7 +106,7 @@ func DownloadFollowingSearchPage(keyword string, referer string, csrfToken strin
 
 	// Referer is the name of an optional HTTP header field that identifies the address of the web page
 	// which is linked to the resource being requested.
-	referer = fmt.Sprintf("https://pubmed.ncbi.nlm.nih.gov/?term=%s&filter=simsearch1.fha&page=%d", url.QueryEscape(keyword), page)
+	referer = fmt.Sprintf("https://pubmed.ncbi.nlm.nih.gov/?term=%s&filter=simsearch1.fha&page=%d", url.QueryEscape(keyword), currPage)
 
 	// get urls of every paper in a single search page
 	// range all the urls
@@ -125,12 +118,11 @@ func DownloadFollowingSearchPage(keyword string, referer string, csrfToken strin
 		paper := CreatePaper()
 		paper.ParsePaper(paperUrl, paperDetailBody, keyword)
 		_ = csvWriter.Write([]string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
-		ExistPaperCount += 1
-		if ExistPaperCount >= limit {
+		ExistPaperCount ++
+		if ExistPaperCount >= paperNumber {
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -144,7 +136,7 @@ func DownloadPaperDetail(targetUrl string, referer string) string {
 		pragma: no-cache
 		referer: %s
 		upgrade-insecure-requests: 1
-		user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36
+		user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.55 Safari/537.36
 	`, referer))
 
 	response, err := client.Get(targetUrl)
