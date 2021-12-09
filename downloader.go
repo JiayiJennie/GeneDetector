@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"github.com/gogf/gf/frame/g"
+	"github.com/gogf/gf/net/ghttp"
 	"net/url"
 	"strings"
 	"time"
@@ -16,8 +17,84 @@ func DownloadFirstSearchPage(keyword string, csvWriter *csv.Writer, paperNumber 
 	// targetUrl is the target URL including the keyword.
 	targetUrl := fmt.Sprintf("https://pubmed.ncbi.nlm.nih.gov/?term=%s&filter=simsearch1.fha", url.QueryEscape(keyword))
 
+	// Request and response
+	response := RequestAndResponseForFirstPage(targetUrl)
+
+	// get body
+	body := response.ReadAllString()  // body is the <body> element containing all the contents of an HTML document.
+
+	// Capture the CSRF token value and get totalSearchPageCount from html body.
+	csrfToken, totalSearchPageCount := GetCsrfToken(body)
+
+	// Get cookie from response
+	cookie := GetCookie(response)
+
+	// parse body to get urls of every paper in the first search page
+	// range all the urls
+	// and get the data from each abstract.
+	dataList := make([][]string, 0)
+	for i, paperUrl := range ParsePaperUrlList(body) {
+		fmt.Printf("Begin to write data line: %d\n", i)
+		paperDetailBody := DownloadPaperDetail(paperUrl, targetUrl)
+		paper := CreatePaper()
+		paper.ParsePaper(paperUrl, paperDetailBody, keyword)
+		dataList = append(dataList, []string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
+		ExistPaperCount ++
+		if ExistPaperCount >= paperNumber{
+			break
+		}
+	}
+
+	// write data in cvs file.
+	err := csvWriter.WriteAll(dataList)
+	if err != nil{
+		panic(err)
+	}
+
+	return targetUrl, csrfToken, cookie, totalSearchPageCount
+}
+
+// DownloadFollowingSearchPage downloads the following pages after the first page.
+func DownloadFollowingSearchPage(keyword string, referer string, csrfToken string, cookie string, currPage int, csvWriter *csv.Writer, paperNumber int) bool {
+	targetUrl := "https://pubmed.ncbi.nlm.nih.gov/more/" // the target urls of the following pages are different from the target url of the first page.
+
+	// request and response
+	response := RequestAndResponseForFollowingSearchPages(targetUrl, cookie, keyword, csrfToken, currPage)
+
+	//get body
+	body := response.ReadAllString()
+
+	// Referer is the name of an optional HTTP header field that identifies the address of the web page
+	// which is linked to the resource being requested.
+	referer = fmt.Sprintf("https://pubmed.ncbi.nlm.nih.gov/?term=%s&filter=simsearch1.fha&page=%d", url.QueryEscape(keyword), currPage)
+
+	// parse body to get urls of every paper in a single search page
+	// range all the urls
+	// and get the data from each abstract.
+	// then write them into file.
+	for i, paperUrl := range ParsePaperUrlList(body) {
+		paperDetailBody := DownloadPaperDetail(paperUrl, referer)
+		paper := CreatePaper()
+		paper.ParsePaper(paperUrl, paperDetailBody, keyword)
+		fmt.Printf("Begin to write data line: %d\n", i)
+		err := csvWriter.Write([]string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
+		if err != nil{
+			panic(err)
+		}
+		ExistPaperCount ++
+		if ExistPaperCount >= paperNumber {
+			return false
+		}
+	}
+	return true
+}
+
+// RequestAndResponseForFirstPage takes targetUrl to request and returns a response.
+func RequestAndResponseForFirstPage(targetUrl string) *ghttp.ClientResponse {
+
 	// create a new client
 	client := g.Client()
+
 	// Set request headers
 	client.SetHeaderRaw(fmt.Sprintf(`
 		accept: */*
@@ -31,49 +108,12 @@ func DownloadFirstSearchPage(keyword string, csvWriter *csv.Writer, paperNumber 
 		panic(err)
 	}
 
-	// get body
-	body := response.ReadAllString()  // body is the <body> element containing all the contents of an HTML document.
-
-	// parse first search page to get csrfToken, totalPageCount
-	// csrfToken is a random key for safe access.
-	// csrfTokens are used to send requests from an authenticated user to a web application.
-	// totalPageCount is the number of total search page.
-	csrfToken, totalPageCount := ParseFirstPage(body)
-	if totalPageCount > 1000 {  // The maximum value of totalPageCount is 1000 (limited by the website)
-		totalPageCount = 1000
-	}
-
-	// A cookie is often used to identify a user.
-	// A cookie is a small file that the server embeds on the user's computer.
-	// Each time the same computer requests a page with a browser, it will send the cookie too.
-	var cookieList []string
-	for key, value := range response.GetCookieMap() {
-		cookieList = append(cookieList, fmt.Sprintf("%s=%s", key, value))
-	}
-	cookie := strings.Join(cookieList, "; ")
-
-	// get urls of every paper in the first search page
-	// range all the urls
-	// and get the data from each abstract.
-	dataList := make([][]string, 0)
-	for i, paperUrl := range ParsePaperUrlList(body) {
-		fmt.Printf("Begin to write data line: %d\n", i)
-		paperDetailBody := DownloadPaperDetail(paperUrl, targetUrl)
-		paper := CreatePaper()
-		paper.ParsePaper(paperUrl, paperDetailBody, keyword)
-		dataList = append(dataList, []string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
-		ExistPaperCount ++
-	}
-	// write data in cvs file.
-	_ = csvWriter.WriteAll(dataList)
-
-	return targetUrl, csrfToken, cookie, totalPageCount
+	return response
 }
 
-
-// DownloadFollowingSearchPage downloads the following pages after the first page.
-func DownloadFollowingSearchPage(keyword string, referer string, csrfToken string, cookie string, currPage int, csvWriter *csv.Writer, paperNumber int) bool {  // function to get content of the following search result page
-	targetUrl := "https://pubmed.ncbi.nlm.nih.gov/more/" // the target urls of the following pages are different from the target url of the first page.
+// RequestAndResponseForFollowingSearchPages takes targetUrl, cookie, keyword, csrfToken and currPage and returns a response.
+// cookie and csrfToken are got from parse fist search page.
+func RequestAndResponseForFollowingSearchPages(targetUrl, cookie, keyword, csrfToken string, currPage int)*ghttp.ClientResponse{
 	client := g.Client()
 	client.SetHeaderRaw(fmt.Sprintf(` 
 		accept: */*
@@ -97,33 +137,42 @@ func DownloadFollowingSearchPage(keyword string, referer string, csrfToken strin
 		"no-cache": time.Now().UnixMilli(),
 		"csrfmiddlewaretoken": csrfToken,
 	}
-	//post request
+
+	// post request
+	// Note that here use post request, not get request as the first search page.
 	response, err := client.Post(targetUrl, data)
 	if err != nil {
 		panic(err)
 	}
-	body := response.ReadAllString()
 
-	// Referer is the name of an optional HTTP header field that identifies the address of the web page
-	// which is linked to the resource being requested.
-	referer = fmt.Sprintf("https://pubmed.ncbi.nlm.nih.gov/?term=%s&filter=simsearch1.fha&page=%d", url.QueryEscape(keyword), currPage)
+	return response
+}
 
-	// get urls of every paper in a single search page
-	// range all the urls
-	// and get the data from each abstract.
-	// then write them into file.
-	for i, paperUrl := range ParsePaperUrlList(body) {
-		fmt.Printf("Begin to write data line: %d\n", i)
-		paperDetailBody := DownloadPaperDetail(paperUrl, referer)
-		paper := CreatePaper()
-		paper.ParsePaper(paperUrl, paperDetailBody, keyword)
-		_ = csvWriter.Write([]string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
-		ExistPaperCount ++
-		if ExistPaperCount >= paperNumber {
-			return false
-		}
+// GetCsrfToken takes a body and returns csrfToken and totalSearchPageCount
+// parse first search page to get csrfToken, totalPageCount
+// csrfToken is a random key for safe access.
+// csrfTokens are used to send requests from an authenticated user to a web application.
+// totalPageCount is the number of total search page.
+func GetCsrfToken(body string) (string, int){
+	csrfToken, totalSearchPageCount := ParseFirstPage(body)
+	if totalSearchPageCount > 1000 {  // The maximum value of totalPageCount is 1000 (limit set by myself)
+		totalSearchPageCount = 1000
 	}
-	return true
+	return csrfToken, totalSearchPageCount
+}
+
+// GetCookie takes a response and returns a cookie.
+// A cookie is often used to identify a user.
+// A cookie is a small file that the server embeds on the user's computer.
+// Each time the same computer requests a page with a browser, it will send the cookie too.
+func GetCookie(response *ghttp.ClientResponse) string {
+	var cookieList []string
+	for key, value := range response.GetCookieMap() {
+		cookieList = append(cookieList, fmt.Sprintf("%s=%s", key, value))
+	}
+	cookie := strings.Join(cookieList, "; ")
+
+	return cookie
 }
 
 // DownloadPaperDetail takes the targetUrl and referer and returns the body.
