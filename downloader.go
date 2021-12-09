@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/csv"
 	"fmt"
 	"github.com/gogf/gf/frame/g"
 	"github.com/gogf/gf/net/ghttp"
@@ -13,7 +12,7 @@ import (
 var ExistPaperCount = 0
 
 // DownloadFirstSearchPage downloads the first search page in file.
-func DownloadFirstSearchPage(keyword string, csvWriter *csv.Writer, paperNumber int) (string, string, string, int) {
+func DownloadFirstSearchPage(keyword string, dataList *[][]string, paperNumber int) (string, string, string, int) {
 	// targetUrl is the target URL including the keyword.
 	targetUrl := fmt.Sprintf("https://pubmed.ncbi.nlm.nih.gov/?term=%s&filter=simsearch1.fha", url.QueryEscape(keyword))
 
@@ -32,13 +31,13 @@ func DownloadFirstSearchPage(keyword string, csvWriter *csv.Writer, paperNumber 
 	// parse body to get urls of every paper in the first search page
 	// range all the urls
 	// and get the data from each abstract.
-	dataList := make([][]string, 0)
+	//dataList := make([][]string, 0)
 	for i, paperUrl := range ParsePaperUrlList(body) {
 		fmt.Printf("Begin to write data line: %d\n", i)
 		paperDetailBody := DownloadPaperDetail(paperUrl, targetUrl)
 		paper := CreatePaper()
 		paper.ParsePaper(paperUrl, paperDetailBody, keyword)
-		dataList = append(dataList, []string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
+		*dataList = append(*dataList, []string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
 		ExistPaperCount ++
 		if ExistPaperCount >= paperNumber{
 			break
@@ -46,16 +45,16 @@ func DownloadFirstSearchPage(keyword string, csvWriter *csv.Writer, paperNumber 
 	}
 
 	// write data in cvs file.
-	err := csvWriter.WriteAll(dataList)
-	if err != nil{
-		panic(err)
-	}
+	//err := csvWriter.WriteAll(dataList)
+	//if err != nil{
+	//	panic(err)
+	//}
 
 	return targetUrl, csrfToken, cookie, totalSearchPageCount
 }
 
 // DownloadFollowingSearchPage downloads the following pages after the first page.
-func DownloadFollowingSearchPage(keyword string, referer string, csrfToken string, cookie string, currPage int, csvWriter *csv.Writer, paperNumber int) bool {
+func DownloadFollowingSearchPage(keyword string, referer string, csrfToken string, cookie string, currPage int, dataList *[][]string, paperNumber int) bool {
 	targetUrl := "https://pubmed.ncbi.nlm.nih.gov/more/" // the target urls of the following pages are different from the target url of the first page.
 
 	// request and response
@@ -77,10 +76,12 @@ func DownloadFollowingSearchPage(keyword string, referer string, csrfToken strin
 		paper := CreatePaper()
 		paper.ParsePaper(paperUrl, paperDetailBody, keyword)
 		fmt.Printf("Begin to write data line: %d\n", i)
-		err := csvWriter.Write([]string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
-		if err != nil{
-			panic(err)
-		}
+		// append data to dataList
+		*dataList = append(*dataList, []string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
+		//err := csvWriter.Write([]string{paper.title, paper.url, paper.abstract, paper.gene, paper.pmid, paper.doi, paper.keyword})
+		//if err != nil{
+		//	panic(err)
+		//}
 		ExistPaperCount ++
 		if ExistPaperCount >= paperNumber {
 			return false
